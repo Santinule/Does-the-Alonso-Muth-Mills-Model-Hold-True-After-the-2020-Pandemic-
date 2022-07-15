@@ -1,0 +1,155 @@
+---
+title: "Capstone_Analysis2"
+author: "santiago"
+date: "1/6/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+
+
+```{r}
+read_csv(file= "data_bundle5df.csv")->data1
+
+data1 %>% names()
+```
+
+```{r}
+data1 %>% select(c(dataValue,date,Dist,ur,confirmed,cpi,new_gdp)) %>% 
+  rename(zhvi=dataValue,
+         gdp = new_gdp,
+         dist = Dist) %>% 
+  mutate(dist = as.factor(dist),
+         confirmed = case_when(is.na(confirmed)~0,
+                               is.numeric(confirmed)~confirmed),
+         wfh= case_when(date>=as.Date("2020-04-01")~"1"
+                        ,T~"0"),
+         wfh = as.factor(wfh))->data0
+
+data0 %>% glimpse
+
+data0 %>% 
+  drop_na()->data
+
+data %>% glimpse()
+
+
+levels(data$dist)
+
+#Change baseline level to 5 milles (shortest radius)
+data$dist <- relevel(data$dist, ref = "5 miles")
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+lm(zhvi~date+dist+wfh+dist:wfh+gdp+ur+cpi+confirmed,data=data)->model1
+summary(model1)
+
+```
+
+#Lets Check model assumptions
+
+```{r}
+#Check for heteroskedatsicity
+
+plot(model1$fitted.values, model1$residuals)
+abline(0, 0)
+
+library(lmtest)
+bptest(model1, studentize = F)
+```
+Rejected homoskedatstic models for linear model.
+
+```{r}
+#Applying Weighted least squares fro remedial measure
+
+data$residuals <- model1$residuals
+
+lm(abs(residuals)~date+dist+wfh+dist:wfh+gdp+ur+cpi+confirmed,data=data)$fitted ->data$abshat
+
+
+#compute weights
+data$w1 <- 1/(data$abshat)^2
+
+#Run weighted least squares 1st iteration
+
+lm(zhvi~date+dist+wfh+dist:wfh+gdp+ur+cpi+confirmed,
+   weights = w1,
+   data=data)->model_wls1
+
+#2nd iteration
+data$residuals2<-model_wls1$residuals 
+lm(abs(residuals2)~date+dist+wfh+dist:wfh+gdp+ur+cpi+confirmed,data=data)$fitted ->data$abshat2
+data$w2 <- 1/(data$abshat2)^2
+lm(zhvi~date+dist+wfh+dist:wfh+gdp+ur+cpi+confirmed,
+   weights = w2,
+   data=data)->model_wls2
+
+#3rd iteration
+data$residuals3<-model_wls2$residuals 
+lm(abs(residuals3)~date+dist+wfh+dist:wfh+gdp+ur+cpi+confirmed,data=data)$fitted ->data$abshat3
+data$w3 <- 1/(data$abshat3)^2
+lm(zhvi~date+dist+wfh+dist:wfh+gdp+ur+cpi+confirmed,
+   weights = w3,
+   data=data)->model_wls3
+
+summary(model_wls1)
+summary(model_wls2)
+```
+
+
+```{r}
+summary(model_wls3)
+
+```
+```{r}
+data %>%
+  select(c(zhvi,ur,gdp,cpi))->numeric_data
+
+cor(numeric_data)
+pairs(numeric_data)
+```
+
+#Publication plots
+
+```{r}
+library(sjPlot)
+```
+
+```{r}
+tab_model(model_wls3, show.se=T, show.ci = 0.95,
+       file="sjt_linear.doc")
+
+
+
+tab_model(model_wls3, show.se=F, show.ci = F,
+       file="sjt_linear2.doc")
+
+data %>% summary()
+
+tab_itemscale(data_num,file="sjt_linear4.doc",)
+
+sjt.itemanalysis(data_num,file="sjt_linear3.doc")
+
+data %>% 
+  select(-c(date,dist,wfh))->data_num
+
+confint(model_wls3, level = 0.95)
+
+
+
+
+```
+

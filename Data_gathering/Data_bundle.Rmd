@@ -1,0 +1,104 @@
+---
+title: "Data_bundle"
+author: "santiago"
+date: "11/23/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(lubridate)
+
+```
+
+```{r}
+read_csv2(file = "mile_5zips_final.csv")->mile5
+read_csv2(file= "mile_10zips_final.csv") %>% mutate(Dist = "10 miles",
+                                                    region =as.character(region))->mile10
+read_csv2(file = "mile_15zips_final.csv") %>% mutate(region = as.character(region))->mile15
+
+mile5
+```
+
+```{r}
+nrow(mile5)+nrow(mile10)+nrow(mile15)
+```
+```{r}
+full_join(mile5, mile10) %>% full_join(mile15)->df_1
+df_1 %>% rename(zip = "region")->df_1
+```
+
+
+#Population Density
+The estimated population per square kilometer. 
+```{r}
+read_csv(file = "density&zipmetrics.csv") %>% 
+  select(zip, density)->zipsdensity
+
+zipsdensity %>% right_join(df_1, by = "zip" )->df_2
+
+df_2 %>% 
+  mutate(timePeriodEndDateTime = str_replace(timePeriodEndDateTime, pattern = "T00:00:00.000Z$", replacement = ""),
+date = ymd(timePeriodEndDateTime)) %>% select(-timePeriodEndDateTime)->df_3
+```
+
+
+# Covid Rate
+```{r}
+library(COVID19)
+library(wbstats)
+```
+
+
+```{r}
+wb_indicators("en") %>% names()
+
+wb_indicators("en")
+
+
+
+wb_indicators("en")->irrel
+
+irrel %>% 
+  filter(str_detect(indicator, pattern = "disposable"))
+
+
+```
+
+
+```{r}
+names(covid19("US", level = 3, wb=c("NY.GDP.MKTP.CD", "NY.GDP.DEFL.KD.ZG", "9.0.Unemp.All")))
+
+covid19("US", level = 3, wb=c("NY.GDP.MKTP.CD","NY.GDP.DEFL.KD.ZG", "9.0.Unemp.All", "NY.GNY.TOTL.CN"), start = "01/01/2020")%>% 
+  select(c("administrative_area_level_3", "confirmed", "population", "date","administrative_area_level_2", "NY.GDP.MKTP.CD","NY.GDP.DEFL.KD.ZG","9.0.Unemp.All")) %>% 
+  rename(regionCity ="administrative_area_level_3",
+         Inflation="NY.GDP.DEFL.KD.ZG",
+         GDP = "NY.GDP.MKTP.CD",
+         Unemployment = "9.0.Unemp.All",
+         state ="administrative_area_level_2") %>% 
+  right_join(df_3, by =c("regionCity", "date"))->df_4
+
+```
+NY.GDP.DEFL.KD.ZG ~ Inflation
+NY.GDP.MKTP.CD ~ GDP
+9.0.Unemp.All ~Unemployment
+NY.GNY.TOTL.CN ~ GNPI
+
+```{r}
+#note that some data got lost. There were 3,413 zip codes that where going to be calculated but only ended up with 2082
+# length(unique(df_4$zip))
+# length(unique(df_3$zip))
+# length(unique(df_2$zip))
+# length(unique(df_1$zip))
+# length(unique(mile5$region))+length(unique(mile10$region))+length(unique(mile15$region))
+# length(unique(mile5$region))
+# length(unique(mile10$region))
+# length(unique(mile15$region))
+
+# write_csv2(df_4, "data_bundle.csv")
+```
+

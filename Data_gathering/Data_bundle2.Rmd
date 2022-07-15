@@ -1,0 +1,224 @@
+---
+2title: "Capstone Analysis"
+author: "santiago"
+date: "11/30/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(keyring)
+library(fredr)
+library(lubridate)
+#key_set("fred")
+fredr_set_key("7ce3f6f05c88095939e8832b6c93f44e")
+```
+
+```{r}
+str_c(state.abb,"UR")->codes_ur
+str_c(state.abb, "NQGSP")->codes_gdp
+typeof(codes_ur)
+```
+
+
+```{r}
+fredr(series_id = "CPIAUCSL",
+      observation_start = as.Date("2018-01-31"),
+      observation_end = as.Date("2021-09-30")) %>% 
+  rename(cpi = "value") %>% 
+  select(date,cpi)->cpi
+
+```
+
+```{r}
+params <- list(
+  series_id = codes_ur,
+  frequency = "m"
+)
+
+pmap_dfr(
+  .l = params,
+  .f = ~ fredr(series_id = .x, frequency = .y,observation_start = as.Date("2018-01-31"),
+      observation_end = as.Date("2021-09-30"))
+)->ur
+
+params2 <- list(
+  series_id = codes_gdp,
+  frequency = "q")
+pmap_dfr(
+  .l = params2,
+  .f = ~ fredr(series_id = .x, frequency = .y,observation_start = as.Date("2018-01-31"),
+      observation_end = as.Date("2021-09-30")))->gdp
+
+```
+
+```{r}
+gdp %>% rename(gdp = value) %>% 
+  mutate(state_abb = str_replace(series_id, pattern = "NQGSP$", replacement = "")) %>% 
+  select(date,gdp,state_abb)->gdp2
+```
+
+
+```{r}
+#may be deleted
+# gdp2 %>% 
+#   filter(state_abb == "AL") %>% 
+#   mutate()
+```
+
+
+```{r}
+ur %>% 
+  rename(ur = value) %>% 
+  mutate(state_abb = str_replace(series_id, pattern = "UR$", replacement = "")) %>% 
+  select(date,ur,state_abb)->ur2
+```
+
+```{r}
+left_join(ur2,gdp2, by=  c("date", "state_abb"))->econ_data
+
+econ_data
+```
+
+```{r}
+st_crosswalk <- tibble(state = state.name) %>%
+   bind_cols(tibble(abb = state.abb)) %>% 
+   bind_rows(tibble(state = "District of Columbia", abb = "DC")) %>% rename(state_abb="abb")
+```
+
+```{r}
+left_join(econ_data, st_crosswalk, by = "state_abb")->econ_data2
+econ_data2 %>% names()
+```
+
+
+```{r}
+read_csv2(file= "Data_bundle.csv")%>% 
+  select(-c("Inflation","Unemployment", "GDP", "id","state")) %>%
+  rename(state_abb= "regionState") %>% 
+  mutate(date2=str_c(as.character(month(df$date)),",",as.character(year(df$date))),
+         date =my(date2))->df
+
+
+```
+
+```{r}
+df %>% left_join(econ_data2, by = c("date","state_abb"))->final_df
+
+# write_csv(final_df,"data_bundle2df.csv")
+
+
+```
+
+```{r}
+read_csv(file= "data_bundle2df.csv")->data01
+left_join(data01,cpi, by = "date")->data_finalll
+
+data_finalll
+```
+
+
+
+
+```{r}
+# Turn gdp from quarter to month
+data_finalll %>%
+  mutate(month = month(date),
+         year = year(date),.before = 1,
+         thirds = case_when(month<=4~T,
+                             month>4& month<=8~F,
+                             month>8 & month<=12~F)) %>%
+           filter(thirds == T) %>%
+  group_by(zip, year) %>% 
+           arrange(date) %>%
+  relocate(c(gdp,date)) %>%
+  mutate(gdp = case_when(is.na(gdp)~0,
+                          is.numeric(gdp)~gdp)) %>%
+  mutate(abc = cumsum(gdp), .before = 1) %>%
+mutate(dist = max(gdp)- min(abc), .before =1) %>%
+  mutate(new_gdp =  case_when(month %in% c(1,5,9)~ min(abc),
+                              month %in% c(2,6,10)~ min(abc)+(max(dist)/3),
+                              month %in% c(3,7,11)~ min(abc)+(max(dist)*2/3),
+                              month %in% c(4,8,12)~ max(gdp)), .before =1) %>% 
+  ungroup()->part1
+
+part1 %>% nrow()
+```
+
+
+```{r}
+data_finalll %>% 
+  mutate(month = month(date),
+         year = year(date),.before = 1,
+         thirds = case_when(month<4~F,
+                             month>=4& month<=7~T,
+                             month>8 & month<=12~F)) %>%
+           filter(thirds == T) %>%
+  group_by(zip, year) %>% 
+           arrange(date) %>%
+  relocate(c(gdp,date)) %>%
+  mutate(gdp = case_when(is.na(gdp)~0,
+                          is.numeric(gdp)~gdp)) %>%
+  mutate(abc = cumsum(gdp), .before = 1) %>%
+mutate(dist = max(gdp)- min(abc), .before =1) %>%
+  mutate(new_gdp =  case_when(month ==4~ min(abc),
+                              month ==5~ min(abc)+(max(dist)/3),
+                              month ==6~ min(abc)+(max(dist)*2/3),
+                              month ==7~ max(gdp)), .before =1) %>% 
+  ungroup() %>% 
+  filter(month !=4) %>% 
+  arrange(date)->part2
+  
+
+data_finalll %>% 
+  mutate(month = month(date),
+         year = year(date),.before = 1,
+         thirds = case_when(month<4~F,
+                             month>=4& month<7~F,
+                             month>=7 ~T)) %>%
+           filter(thirds == T) %>%
+  group_by(zip, year) %>% 
+           arrange(date) %>%
+  relocate(c(gdp,date)) %>%
+  mutate(gdp = case_when(is.na(gdp)~0,
+                          is.numeric(gdp)~gdp)) %>%
+  mutate(abc = cumsum(gdp), .before = 1) %>%
+mutate(dist = max(gdp)- min(abc), .before =1) %>%
+  mutate(new_gdp =  case_when(month ==7~ min(abc),
+                              month ==8~ min(abc)+(max(dist)/3),
+                              month ==9~ min(abc)+(max(dist)*2/3),
+                              month ==10~ max(gdp)), .before =1) %>% 
+  ungroup() %>%  
+  filter(month !=7) %>% 
+  arrange(date) ->part3
+
+
+full_join(part1, part2) %>% 
+  full_join(part3) %>% 
+  select(-c(dist, abc, month, year, thirds, gdp)) %>% 
+  arrange(zip, date) %>% 
+  distinct()->data_finalll2
+
+data_finalll2 %>% 
+  nrow()
+data_finalll %>% 
+  nrow()
+```
+
+
+
+
+
+
+```{r}
+# write_csv(data_finalll,"data_bundle4df.csv")
+write_csv(data_finalll2,"data_bundle5df.csv")
+```
+
+
+
+

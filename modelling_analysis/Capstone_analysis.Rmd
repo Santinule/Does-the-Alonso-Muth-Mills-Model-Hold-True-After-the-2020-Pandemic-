@@ -1,0 +1,206 @@
+---
+title: "capstone_analysis"
+author: "santiago"
+date: "11/30/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+#load data
+```{r}
+read_csv(file= "data_bundle3df.csv")->data1
+
+data1 %>% names()
+
+```
+#Clean a little
+```{r}
+data1 %>% glimpse()
+
+data1 %>% select(c(dataValue,date,Dist,ur,density,confirmed,cpi,gdp)) %>% 
+  rename(zhvi=dataValue,
+         dist = Dist) %>% 
+  mutate(dist = as.factor(dist),
+         wfh= case_when(date>=as.Date("2020-04-01")~"1"
+                        ,T~"0"),
+         wfh = as.factor(wfh))->data
+
+
+
+#Change baseline level to 5 milles (shortest radius)
+data$dist <- relevel(data$dist, ref = "5 miles")
+
+```
+
+```{r}
+#Filter data on covid work from home or non covid non wfh.
+data %>% filter(wfh==1) %>% 
+  mutate(dist5 = case_when(dist == "5 miles"~1,
+                           T~0))->wfh1_data
+
+
+  
+
+data %>% filter(wfh==0) %>% 
+  select(-confirmed) %>% 
+  mutate(dist5 = case_when(dist == "5 miles"~1,
+                           T~0))->wfh0_data
+
+
+```
+# Part 1
+
+*Created two models. One model is before covid and the other is after covid.
+```{r}
+lm(zhvi~date+dist+gdp+ur+cpi+density,data=wfh0_data)->control_model
+summary(control_model)
+
+
+lm(zhvi~date+dist+gdp+ur+cpi+density+confirmed,data=wfh1_data)->effect_model
+summary(effect_model)
+```
+
+#Lets Check model assumptions
+
+```{r}
+#Check for heteroskedatsicity
+plot(control_model$fitted.values, control_model$residuals)
+abline(0, 0)
+
+plot(effect_model$fitted.values, effect_model$residuals)
+abline(0, 0)
+```
+
+Conduct Breush-pagan test: 
+The null hypothesis is that the error variances are equal
+```{r}
+library(lmtest)
+bptest(control_model, studentize = F)
+bptest(effect_model, studentize = F)
+```
+Rejected homoskedatstic models for both liner models.
+
+Hence, wls as a remedial measure:
+
+```{r}
+wfh0_data %>% 
+  drop_na()->wfh0_data_nona
+wfh1_data %>% 
+  drop_na()->wfh1_data_nona
+```
+
+
+```{r}
+# Lets do control model
+
+wfh0_data_nona$residuals <- control_model$residuals
+
+lm(abs(residuals)~date+dist+gdp+ur+cpi, data = wfh0_data_nona)$fitted->wfh0_data_nona$abshat
+
+#compute weights
+wfh0_data_nona$w1 <- 1/(wfh0_data_nona$abshat)^2
+
+
+
+#Run weighted least squares 1st iteration
+# lm(y~x, weights = w1, data=ms)->wls_ms
+lm(zhvi~date+dist+gdp+ur+cpi+density, 
+   weights = w1,
+   data=wfh0_data_nona)->wls1_control
+
+#2nd iteration
+wfh0_data_nona$resi2<-wls1_control$residuals 
+
+wfh0_data_nona$abshat2<-lm(abs(resi2)~date+dist+gdp+ur+cpi, data = wfh0_data_nona)$fitted 
+wfh0_data_nona$w2 <- 1/(wfh0_data_nona$abshat2)^2
+lm(zhvi~date+dist+gdp+ur+cpi+density, 
+   weights = w2,
+   data=wfh0_data_nona)->wls2_control
+
+#3rd iteration
+# wfh0_data_nona$resi3<-wls2_control$residuals 
+# 
+# wfh0_data_nona$abshat3<-lm(abs(resi3)~date+dist+gdp+ur+cpi, data = wfh0_data_nona)$fitted
+# wfh0_data_nona$w3 <- 1/(wfh0_data_nona$abshat3)^2
+# lm(zhvi~date+dist+gdp+ur+cpi+density,
+#    weights = w3,
+#    data=wfh0_data_nona)->wls3_control
+
+summary(control_model)
+summary(wls1_control)
+summary(wls2_control)
+
+
+```
+
+```{r}
+# Lets do effect model
+
+wfh1_data_nona$residuals <- effect_model$residuals
+
+lm(abs(residuals)~date+dist+gdp+ur+cpi+confirmed, data = wfh1_data_nona)$fitted->wfh1_data_nona$abshat
+
+#compute weights
+wfh1_data_nona$w1 <- 1/(wfh1_data_nona$abshat)^2
+
+
+
+#Run weighted least squares 1st iteration
+lm(zhvi~date+dist+gdp+ur+cpi+density+confirmed, 
+   weights = w1,
+   data=wfh1_data_nona)->wls1_effect
+
+#2nd iteration
+wfh1_data_nona$resi2<-wls1_effect$residuals 
+
+wfh1_data_nona$abshat2<-lm(abs(resi2)~date+dist+gdp+ur+cpi+confirmed, data = wfh1_data_nona)$fitted 
+
+wfh1_data_nona$w2 <- 1/(wfh1_data_nona$abshat2)^2
+
+lm(zhvi~date+dist+gdp+ur+cpi+density+confirmed, 
+   weights = w2,
+   data=wfh1_data_nona)->wls2_effect
+
+#3rd iteration
+
+wfh1_data_nona$resi3<-wls2_effect$residuals 
+
+wfh1_data_nona$abshat3<-lm(abs(resi3)~date+dist+gdp+ur+cpi+confirmed, data = wfh1_data_nona)$fitted 
+
+wfh1_data_nona$w3 <- 1/(wfh1_data_nona$abshat3)^2
+
+lm(zhvi~date+dist+gdp+ur+cpi+density+confirmed, 
+   weights = w3,
+   data=wfh1_data_nona)->wls3_effect
+
+summary(effect_model)
+summary(wls1_effect)
+summary(wls2_effect)
+summary(wls3_effect)
+```
+
+```{r}
+#Get confint for effect model
+confint(wls3_effect, level = 0.95)
+```
+
+
+```{r}
+
+```
+
+
+#Analysis
+
+```{r}
+
+
+```
+

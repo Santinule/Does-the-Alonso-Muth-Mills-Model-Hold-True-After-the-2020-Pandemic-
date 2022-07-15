@@ -1,0 +1,420 @@
+---
+title: "Zillow data"
+author: "santiago"
+date: "10/27/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+https://documenter.getpostman.com/view/9197254/SzRuZCCj?version=latest#authentication
+https://bridgedataoutput.com/myApplication/settings
+https://bridgedataoutput.com/docs/platform/FAQ
+https://www.zillowgroup.com/developers/api/public-data/neighborhood-data/
+
+
+```{r}
+library(tidyverse)
+library(httr)
+library(keyring)
+library(rjson)
+library(jsonlite)
+
+#key_set("bridge_client_id")
+#key_set("bridge_client_secret")
+#key_set("bridge_server_token")
+#key_set("bridge_browser_token")
+# key_get("bridge_client_id")==
+# key_get('bridge_client_secret')==
+# key_get('bridge_browser_token')==
+# key_get('bridge_server_token')=="key_get('bridge_server_token')"
+```
+
+
+
+
+## Steps:
+
+1. I need 4 parameters:
+
+{{access_token}} = 
+*(the access token that I do not have or might have.)*
+
+
+metricTypeKey = "zhvi2"
+*Specifies house*
+
+cutTypeKey = 
+*refers to single home, two person home... etc)*'
+
+regionTypeID = "7"
+*Here 7 refers to zip code level data*
+
+regionID.in = 
+*A list for specific zip codes*
+
+To get id:https://api.bridgedataoutput.com/api/v2/zgecon/region?access_token={{access_token}}&region=98101
+
+```{r}
+read_csv(file="City_zip_codes.csv")->df1
+length(unique(df1$`ZIP code`))
+```
+
+
+```{r}
+df1 %>% rename(distance= `Distance from town hall (mi)`,
+               zip = `ZIP code`)->df1
+```
+
+#5miles
+```{r}
+#Get zip code list for 5 miles
+df1 %>% 
+  filter(distance == 5)->miles_5_zips
+miles_5_zips %>% mutate(row_number = row_number())->miles_5_zips
+
+
+```
+
+```{r}
+#Divide zip code list into 
+nrow(miles_5_zips)
+miles_5_zips %>% filter(row_number<75)->m5_zips_group1
+miles_5_zips %>% filter(row_number>=75 & row_number<75*2)->m5_zips_group2
+miles_5_zips %>% filter(row_number>=75*2 & row_number<75*3)->m5_zips_group3
+miles_5_zips %>% filter(row_number>=75*3 & row_number<75*4)->m5_zips_group4
+miles_5_zips %>% filter(row_number>=75*4 & row_number<75*5)->m5_zips_group5
+miles_5_zips %>% filter(row_number>=75*5 & row_number<75*6)->m5_zips_group6
+miles_5_zips %>% filter(row_number>=75*6 & row_number<75*7)->m5_zips_group7
+miles_5_zips %>% filter(row_number>=75*7 & row_number<75*8)->m5_zips_group8
+miles_5_zips %>% filter(row_number>=75*8 & row_number<75*9)->m5_zips_group9
+miles_5_zips %>% filter(row_number>=75*9 & row_number<75*10)->m5_zips_group10
+miles_5_zips %>% filter(row_number>=75*10 & row_number<75*11)->m5_zips_group11
+miles_5_zips %>% filter(row_number>=75*11& row_number<75*12)->m5_zips_group12
+miles_5_zips %>% filter(row_number>=75*12 & row_number<75*13)->m5_zips_group13
+
+
+
+```
+
+
+```{r}
+str_c(m5_zips_group1$zip, sep ="", collapse = ",")
+str_c(m5_zips_group2$zip, sep ="", collapse = ",")
+str_c(m5_zips_group3$zip, sep ="", collapse = ",")
+str_c(m5_zips_group4$zip, sep ="", collapse = ",")
+str_c(m5_zips_group5$zip, sep ="", collapse = ",")
+```
+
+
+```{r}
+str_c(m5_zips_group6$zip, sep ="", collapse = ",")
+str_c(m5_zips_group7$zip, sep ="", collapse = ",")
+
+str_c(m5_zips_group8$zip, sep ="", collapse = ",")
+
+
+str_c(m5_zips_group9$zip, sep ="", collapse = ",")
+
+str_c(m5_zips_group10$zip, sep ="", collapse = ",")
+
+str_c(m5_zips_group11$zip, sep ="", collapse = ",")
+
+str_c(m5_zips_group12$zip, sep ="", collapse = ",")
+str_c(m5_zips_group13$zip, sep ="", collapse = ",")
+
+
+
+str_count("94111,94112,94114,97209,97210,97212,97213,97214,97215,67208,94115,94116,94117,77098,77201,97219,97221,97225,97227,97232,97239,38103,38104,38105,38106,38107,38112,43215,38126,46107,68102,68104,68105,68106,68107,68108,68110,68111,07310,07311", pattern = ",")
+```
+
+### Getting Region ID
+
+```{r}
+#Get region ID
+fromJSON("https://api.bridgedataoutput.com/api/v2/zgecon/region?access_token=key_get('bridge_server_token')&region.in=92705,92706,92707,92780,92801,92802,92804,92805,92806,92831,92832,92833,92835,92840,92843,92865,92866,92868,92870,19102,19103,19104,19106,85034,85040,85041,90814,90822,90831,19107,19109,19112,19121,19122,19123,19125,19129,19130,19131,19132,85201,85202,85203,85204,85210,85213,85233,19133,19134,19139,90744,19140,19142,19143,19145,19146,19147,19148,90755,90802,90803,08102,90804,90806,90807,90810,90813,08103,08104,20036,20037,20045,20052,20053&limit=200")$bundle$regionID->m5_ID_group1
+```
+
+
+```{r}
+fromJSON("https://api.bridgedataoutput.com/api/v2/zgecon/region?access_token=key_get('bridge_server_token')&region.in=20057,20064,20202,20204,20228,20230,20240,20245,20260,20317,20319,20373,20390,20405,20418,20427,20506,20510,20520,20535,20540,20551,20553,20560,20565,20566,20593,92132,92134,92135,92140,92147,92155,92501,92506,92507,92509,22311,92606,92701,92703,92704,21201,21202,21205,21210,21211,08105,32254,20712,20722,22041,22044,90004,90005,90006,90007,90010,90011,90012,90013,90014,90015,90017,90018,90020,90021,22201,22202,22203,90023,90026,90029,90031,90032&limit=200")$bundle$regionID->m5_ID_group2
+```
+
+
+```{r}
+fromJSON("https://api.bridgedataoutput.com/api/v2/zgecon/region?access_token=key_get('bridge_server_token')&region.in=90033,90037,90039,22204,90063,90065,90071,90079,90089,90090,90057,90058,20001,20002,20003,32202,32204,32205,32206,32207,32208,32209,32211,20004,20005,20006,20007,20008,20009,20010,20011,20016,20017,20018,20019,20020,20024,20032,21213,32277,21214,21216,21217,21218,21223,21224,21225,21229,21230,21231,21251,08030,85701,85705,85713,85714,85716,85719,85723,85724,85726,92101,92102,92103,92104,92105,92106,92108,22205,22206,22207,22209,22211,22213,22214 &limit=200")$bundle$regionID->m5_ID_group3
+```
+
+
+```{r}
+fromJSON("https://api.bridgedataoutput.com/api/v2/zgecon/region?access_token=key_get('bridge_server_token')&region.in=22301,22302,92110,92113,92116,92118,22305,85003,85004,85006,85007,85009,85012,85013,85014,85015,85017,94118,94121,94122,94123,94124,94127,94129,94130,94131,95825,95833,73118,73121,73129,94133,94134,94158,94501,94502,95834,33602,33603,33604,33605,33606,94601,94602,94606,94607,94608,94609,94610,94611,94612,94618,94702,94703,94704,94705,94710,94720,70032,70053,70056,78701,78702,78703,78704,78705,78712,78721,78722,23453,23456,78723,78741,78746,64101 &limit=200")$bundle$regionID->m5_ID_group4
+```
+
+
+```{r}
+fromJSON("https://api.bridgedataoutput.com/api/v2/zgecon/region?access_token=key_get('bridge_server_token')&region.in=64102,70112,70113,70114,70115,70116,23460,78751,78756,64105,64106,64108,64109,64110,70117,70118,70119,70122,70124,64111,64112,64116,64120,64123,64124,70125,70130,70139,70163,60653,60654,60657,60661,64125,64126,64127,64128,30303,30306,30307,30308,30309,30310,30312,30313,30314,30315,30316,30317,30318,67213,30322,30332,30334,30363,53202,53203,53204,53205,53206,53207,53208,53210,33607,33609,93301,93304,93305,93309,48209,87102,87104,87106,87107,87108 &limit=200")$bundle$regionID->m5_ID_group5
+
+#5/13
+
+fromJSON("https://api.bridgedataoutput.com/api/v2/zgecon/region?access_token=key_get('bridge_server_token')&region.in=87110,33611,33614,33619,96813,48210,48211,96814,96815,96816,96817,96819,96822,96826,96850,33629,44127,07302,40280,07010,44109,44113,02108,02109,02110,02111,02113,02114,02115,44114,44115,02116,02118,02119,02120,02121,02122,02125,02127,02128,02129,02130,10065,10069,10075,10103,10110,10111,10112,10115,10119,10128,10152,55401,55402,55403,55404,55405,10153,10154,10162,10165,10167,10168,10169,10170,10171,10172,10173,10174,10177,10199,10271,10278,10279 &limit=200")$bundle$regionID->m5_ID_group6
+
+fromJSON("https://api.bridgedataoutput.com/api/v2/zgecon/region?access_token=key_get('bridge_server_token')&region.in=10280,10282,02134,02135,02138,76102,76103,76104,76105,76106,76107,76109,76110,76111,76114,76115,55406,55407,55408,80903,80904,80905,07306,07307,76129,10454,80907,80909,80910,95050,95053,95110,78201,78202,78203,78204,78205,78207,78208,78210,78212,10001,10002,10003,10004,10005,10006,10007,10009,95111,95112,95113,95116,95117,95121,95122,95125,95126,95128,95131,95133,95136,77002,77003,77004,77005,77006,77007,78215,78225,78234,78237,10010,10011,10012 &limit=200")$bundle$regionID->m5_ID_group7
+
+fromJSON("https://api.bridgedataoutput.com/api/v2/zgecon/region?access_token=key_get('bridge_server_token')&region.in=10013,10014,10016,10017,10018,10019,10020,10021,77008,77009,77010,77011,77019,77020,77021,77022,10022,10023,10024,10025,10026,10027,10028,10029,10030,79901,79902,79903,79905,95811,95814,95815,77023,77026,77027,10035,10036,10037,10038,10044,95816,95817,95818,95819,95820,95822,79930,11237,55108,55114,28202,28203,28204,28205,28206,28207,28208,28209,28211,28244,60601,60602,60603,97201,97202,97204,97205,97206,97208,48201,48202,28280,28282,11377,11378&limit=200")$bundle$regionID->m5_ID_group8
+
+fromJSON("https://api.bridgedataoutput.com/api/v2/zgecon/region?access_token=key_get('bridge_server_token')&region.in=60604,60605,60606,60607,60608,60610,07086,07087,74129,74132,48206,48207,48208,07093,07094,74135,74136,74137,74145,07047,67211,46201,46202,46203,46204,46205,46208,46218,46222,96859,67214,46225,02139,02140,02141,02142,02143,02144,67218,67260,11101,11102,11103,11104,11105,11106,11109,11201,02145,02148,02149,02150,02151,02152,02163,11205,11206,02199,02203,02210,02215,11211,98039,98144,98154,98164,98101,11222,98174,98195,98199,98102,98103,98104,98105&limit=200")$bundle$regionID->m5_ID_group9
+
+fromJSON("https://api.bridgedataoutput.com/api/v2/zgecon/region?access_token=key_get('bridge_server_token')&region.in=98106,98107,98108,98109,75208,75210,75212,75214,75215,02445,02446,78401,78402,78404,78405,78407,78408,78411,78416,75270,75390,98112,98116,75216,75219,75223,48214,48216,75226,98119,98121,98122,98126,98134,75235,48226,48233,95605,44101,44102,75201,75202,75246,80111,48243,44103,44104,44106,53211,53212,53213,75203,75204,75205,75206,75207,76164,80202,80203,80204,80205,80206,80207,80209,80210,80211,80212,80214,80216,80218,80219,80220,80223,80224,53215&limit=200")$bundle$regionID->m5_ID_group10
+
+#10/13
+
+fromJSON("https://api.bridgedataoutput.com/api/v2/zgecon/region?access_token=key_get('bridge_server_token')&region.in=53216,53233,74104,74105,80231,80237,80246,80247,80264,80290,80293,80294,60611,60612,60614,60616,74112,74114,53295,60622,60624,74119,74120,47448,60647,60642,43222,43223,43201,43202,43203,43204,43205,43206,43209,43210,89002,89011,89012,89014,89015,89030,43211,43212,89032,89101,89102,89104,89106,89107,89108,89109,33101,33125,33128,33129,33130,33131,33133,89121,33134,33135,33136,68117,68131,89146,89169,33143,33145,68132,68178,33146,33149,33155,40202&limit=200")$bundle$regionID->m5_ID_group11
+
+fromJSON("https://api.bridgedataoutput.com/api/v2/zgecon/region?access_token=key_get('bridge_server_token')&region.in=80012,80013,80014,80015,80017,55409,55411,55412,55413,55414,55415,55416,55418,40203,40204,40205,40206,40208,40209,40210,55422,40211,40212,47129,07020,66101,66103,40215,40217,07022,66105,66115,66118,07030,55454,55455,93701,93702,93703,93704,93705,73102,73103,73104,73105,73106,73107,73108,73109,73111,73112,73116,73117,51501,51510,93721,93726,93728,27601,27605,27606,27608,27609,77030,77046,67202,67203,94102,94103,94104,94105,94107,94108,94109,94110&limit=200")$bundle$regionID->m5_ID_group12
+
+fromJSON("https://api.bridgedataoutput.com/api/v2/zgecon/region?access_token=key_get('bridge_server_token')&region.in=94111,94112,94114,97209,97210,97212,97213,97214,97215,67208,94115,94116,94117,77098,77201,97219,97221,97225,97227,97232,97239,38103,38104,38105,38106,38107,38112,43215,38126,46107,68102,68104,68105,68106,68107,68108,68110,68111,07310,07311&limit=200")$bundle$regionID->m5_ID_group13
+
+
+```
+
+```{r}
+
+```
+
+
+```{r}
+c(m5_ID_group1,m5_ID_group2,m5_ID_group3,m5_ID_group4,m5_ID_group5,m5_ID_group6,m5_ID_group7,m5_ID_group8,m5_ID_group9,m5_ID_group10,m5_ID_group11,m5_ID_group12,m5_ID_group13)->ID_5M
+
+
+length(ID_5M)
+```
+
+
+```{r}
+"https://api.bridgedataoutput.com/api/v2/zgecon/marketreport/replication?access_token=key_get('bridge_server_token')&metricTypeKey=zhvi&cutTypeKey=bdrmcnt_0_uc_sfrcondo_tier_0.33_0.67&regionTypeID=7&regionID.in="->begin
+"&timePeriodEndDateTime.gt=2018-01-01&timePeriodEndDateTime.lt=2021-10-01"->end
+```
+
+Lets do 50 pulls per region id
+#Get the data for 5 miles
+```{r}
+#Get the data
+
+
+fromJSON(str_c(begin, str_c(ID_5M[1:50], sep="", collapse = ","),end))$bundle->minidf1
+fromJSON(str_c(begin, str_c(ID_5M[51:100], sep="", collapse = ","),end))$bundle->minidf2
+fromJSON(str_c(begin, str_c(ID_5M[101:150], sep="", collapse = ","),end))$bundle->minidf3
+fromJSON(str_c(begin, str_c(ID_5M[151:200], sep="", collapse = ","),end))$bundle->minidf4
+fromJSON(str_c(begin, str_c(ID_5M[201:250], sep="", collapse = ","),end))$bundle->minidf5
+fromJSON(str_c(begin, str_c(ID_5M[251:300], sep="", collapse = ","),end))$bundle->minidf6
+fromJSON(str_c(begin, str_c(ID_5M[301:350], sep="", collapse = ","),end))$bundle->minidf7
+fromJSON(str_c(begin, str_c(ID_5M[351:400], sep="", collapse = ","),end))$bundle->minidf8
+fromJSON(str_c(begin, str_c(ID_5M[401:450], sep="", collapse = ","),end))$bundle->minidf9
+fromJSON(str_c(begin, str_c(ID_5M[451:500], sep="", collapse = ","),end))$bundle->minidf10
+fromJSON(str_c(begin, str_c(ID_5M[501:550], sep="", collapse = ","),end))$bundle->minidf11
+fromJSON(str_c(begin, str_c(ID_5M[551:600], sep="", collapse = ","),end))$bundle->minidf12
+fromJSON(str_c(begin, str_c(ID_5M[601:650], sep="", collapse = ","),end))$bundle->minidf13
+fromJSON(str_c(begin, str_c(ID_5M[651:700], sep="", collapse = ","),end))$bundle->minidf14
+fromJSON(str_c(begin, str_c(ID_5M[701:750], sep="", collapse = ","),end))$bundle->minidf15
+fromJSON(str_c(begin, str_c(ID_5M[751:800], sep="", collapse = ","),end))$bundle->minidf16
+fromJSON(str_c(begin, str_c(ID_5M[801:850], sep="", collapse = ","),end))$bundle->minidf17
+fromJSON(str_c(begin, str_c(ID_5M[851:868], sep="", collapse = ","),end))$bundle->minidf18
+```
+
+
+```{r}
+full_join(minidf1,minidf2) %>% full_join(minidf3)%>% full_join(minidf4)%>% full_join(minidf5)%>% full_join(minidf6)%>% full_join(minidf7) %>%full_join(minidf8)%>% full_join(minidf9)%>% full_join(minidf10)%>% full_join(minidf11)%>% full_join(minidf12)%>% full_join(minidf13)%>% full_join(minidf14)%>% full_join(minidf15)%>% full_join(minidf16)%>% full_join(minidf17)%>% full_join(minidf18)->mile_5zips_final
+```
+
+```{r}
+mile_5zips_final %>% 
+  select("region","regionCounty","regionMetro","regionCity", "timePeriodEndDateTime", "dataValue", "regionState") %>% 
+  mutate(Dist = "5 miles")->mile_5zips_final
+
+write_csv2(mile_5zips_final, "mile_5zips_final.csv")
+
+
+
+```
+
+# Let do 5-10 miles
+
+```{r}
+begin_ID <- "https://api.bridgedataoutput.com/api/v2/zgecon/region?access_token=key_get('bridge_server_token')&region.in="
+
+end_ID <- "&limit=200"
+
+```
+
+
+```{r}
+seq(from= 0, to=1293, by= 75)
+1200-length(miles_10_zips$zip)
+length(miles_10_zips$zip)
+```
+
+
+```{r}
+df1 %>% 
+  filter(distance == 10)->miles_10_zips
+
+c(fromJSON(str_c(begin_ID, str_c(miles_10_zips$zip[1:75], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_10_zips$zip[76:150], sep="", collapse = ","),end_ID))$bundle[[1]], 
+fromJSON(str_c(begin_ID, str_c(miles_10_zips$zip[151:225], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_10_zips$zip[226:300], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_10_zips$zip[301:375], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_10_zips$zip[376:450], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_10_zips$zip[451:525], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_10_zips$zip[526:600], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_10_zips$zip[601:675], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_10_zips$zip[676:750], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_10_zips$zip[751:825], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_10_zips$zip[826:900], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_10_zips$zip[901:975], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_10_zips$zip[976:1050], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_10_zips$zip[1051:1125], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_10_zips$zip[1126:1200], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_10_zips$zip[1201:1275], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_10_zips$zip[1276:1293], sep="", collapse = ","),end_ID))$bundle[[1]])->ID_10M
+
+length(ID_10M)
+
+```
+
+
+```{r}
+#Getting data
+fromJSON(str_c(begin, str_c(ID_10M[1:50], sep="", collapse = ","),end))$bundle->minidf1
+fromJSON(str_c(begin, str_c(ID_10M[51:100], sep="", collapse = ","),end))$bundle->minidf2
+fromJSON(str_c(begin, str_c(ID_10M[101:150], sep="", collapse = ","),end))$bundle->minidf3
+fromJSON(str_c(begin, str_c(ID_10M[151:200], sep="", collapse = ","),end))$bundle->minidf4
+fromJSON(str_c(begin, str_c(ID_10M[201:250], sep="", collapse = ","),end))$bundle->minidf5
+fromJSON(str_c(begin, str_c(ID_10M[251:300], sep="", collapse = ","),end))$bundle->minidf6
+fromJSON(str_c(begin, str_c(ID_10M[301:350], sep="", collapse = ","),end))$bundle->minidf7
+fromJSON(str_c(begin, str_c(ID_10M[351:400], sep="", collapse = ","),end))$bundle->minidf8
+fromJSON(str_c(begin, str_c(ID_10M[401:450], sep="", collapse = ","),end))$bundle->minidf9
+fromJSON(str_c(begin, str_c(ID_10M[451:500], sep="", collapse = ","),end))$bundle->minidf10
+fromJSON(str_c(begin, str_c(ID_10M[501:550], sep="", collapse = ","),end))$bundle->minidf11
+fromJSON(str_c(begin, str_c(ID_10M[551:600], sep="", collapse = ","),end))$bundle->minidf12
+fromJSON(str_c(begin, str_c(ID_10M[601:650], sep="", collapse = ","),end))$bundle->minidf13
+fromJSON(str_c(begin, str_c(ID_10M[651:700], sep="", collapse = ","),end))$bundle->minidf14
+fromJSON(str_c(begin, str_c(ID_10M[701:750], sep="", collapse = ","),end))$bundle->minidf15
+fromJSON(str_c(begin, str_c(ID_10M[751:800], sep="", collapse = ","),end))$bundle->minidf16
+fromJSON(str_c(begin, str_c(ID_10M[801:850], sep="", collapse = ","),end))$bundle->minidf17
+fromJSON(str_c(begin, str_c(ID_10M[851:900], sep="", collapse = ","),end))$bundle->minidf18
+fromJSON(str_c(begin, str_c(ID_10M[901:950], sep="", collapse = ","),end))$bundle->minidf19
+fromJSON(str_c(begin, str_c(ID_10M[951:1000], sep="", collapse = ","),end))$bundle->minidf20
+fromJSON(str_c(begin, str_c(ID_10M[1001:1050], sep="", collapse = ","),end))$bundle->minidf21
+fromJSON(str_c(begin, str_c(ID_10M[1051:1100], sep="", collapse = ","),end))$bundle->minidf22
+fromJSON(str_c(begin, str_c(ID_10M[1101:1150], sep="", collapse = ","),end))$bundle->minidf23
+fromJSON(str_c(begin, str_c(ID_10M[1151:1200], sep="", collapse = ","),end))$bundle->minidf24
+fromJSON(str_c(begin, str_c(ID_10M[1201:1250], sep="", collapse = ","),end))$bundle->minidf25
+fromJSON(str_c(begin, str_c(ID_10M[1251:1273], sep="", collapse = ","),end))$bundle->minidf26
+
+full_join(minidf1,minidf2) %>% full_join(minidf3)%>% full_join(minidf4)%>% full_join(minidf5)%>% full_join(minidf6)%>% full_join(minidf7) %>%full_join(minidf8)%>% full_join(minidf9)%>% full_join(minidf10)%>% full_join(minidf11)%>% full_join(minidf12)%>% full_join(minidf13)%>% full_join(minidf14)%>% full_join(minidf15)%>% full_join(minidf16)%>% full_join(minidf17)%>% full_join(minidf18)%>% full_join(minidf19)%>% full_join(minidf20)%>% full_join(minidf21) %>%full_join(minidf22)%>% full_join(minidf23)%>% full_join(minidf24)%>% full_join(minidf25)%>% full_join(minidf26)->mile_10zips_final
+
+glimpse(mile_10zips_final) %>% 
+  select("region","regionCounty","regionMetro","regionCity", "timePeriodEndDateTime", "dataValue","regionState") %>% 
+  mutate(Dist = "5 miles")->mile_10zips_final
+  
+
+write_csv2(mile_10zips_final, "mile_10zips_final.csv")
+
+```
+
+
+#Lets do 15 miles
+
+```{r}
+df1 %>% 
+  filter(distance == 15)->miles_15_zips
+
+length(miles_15_zips$zip)
+
+c(fromJSON(str_c(begin_ID, str_c(miles_15_zips$zip[1:75], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_15_zips$zip[76:150], sep="", collapse = ","),end_ID))$bundle[[1]], 
+fromJSON(str_c(begin_ID, str_c(miles_15_zips$zip[151:225], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_15_zips$zip[226:300], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_15_zips$zip[301:375], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_15_zips$zip[376:450], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_15_zips$zip[451:525], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_15_zips$zip[526:600], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_15_zips$zip[601:675], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_15_zips$zip[676:750], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_15_zips$zip[751:825], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_15_zips$zip[826:900], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_15_zips$zip[901:975], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_15_zips$zip[976:1050], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_15_zips$zip[1051:1125], sep="", collapse = ","),end_ID))$bundle[[1]],
+fromJSON(str_c(begin_ID, str_c(miles_15_zips$zip[1126:1181], sep="", collapse = ","),end_ID))$bundle[[1]])->ID_15M
+
+length(ID_15M)
+length(ID_10M)
+
+
+```
+
+```{r}
+#Getting data
+fromJSON(str_c(begin, str_c(ID_15M[1:50], sep="", collapse = ","),end))$bundle->minidf1
+fromJSON(str_c(begin, str_c(ID_15M[51:100], sep="", collapse = ","),end))$bundle->minidf2
+fromJSON(str_c(begin, str_c(ID_15M[101:150], sep="", collapse = ","),end))$bundle->minidf3
+fromJSON(str_c(begin, str_c(ID_15M[151:200], sep="", collapse = ","),end))$bundle->minidf4
+fromJSON(str_c(begin, str_c(ID_15M[201:250], sep="", collapse = ","),end))$bundle->minidf5
+fromJSON(str_c(begin, str_c(ID_15M[251:300], sep="", collapse = ","),end))$bundle->minidf6
+fromJSON(str_c(begin, str_c(ID_15M[301:350], sep="", collapse = ","),end))$bundle->minidf7
+fromJSON(str_c(begin, str_c(ID_15M[351:400], sep="", collapse = ","),end))$bundle->minidf8
+fromJSON(str_c(begin, str_c(ID_15M[401:450], sep="", collapse = ","),end))$bundle->minidf9
+fromJSON(str_c(begin, str_c(ID_15M[451:500], sep="", collapse = ","),end))$bundle->minidf10
+fromJSON(str_c(begin, str_c(ID_15M[501:550], sep="", collapse = ","),end))$bundle->minidf11
+fromJSON(str_c(begin, str_c(ID_15M[551:600], sep="", collapse = ","),end))$bundle->minidf12
+fromJSON(str_c(begin, str_c(ID_15M[601:650], sep="", collapse = ","),end))$bundle->minidf13
+fromJSON(str_c(begin, str_c(ID_15M[651:700], sep="", collapse = ","),end))$bundle->minidf14
+fromJSON(str_c(begin, str_c(ID_15M[701:750], sep="", collapse = ","),end))$bundle->minidf15
+fromJSON(str_c(begin, str_c(ID_15M[751:800], sep="", collapse = ","),end))$bundle->minidf16
+fromJSON(str_c(begin, str_c(ID_15M[801:850], sep="", collapse = ","),end))$bundle->minidf17
+fromJSON(str_c(begin, str_c(ID_15M[851:900], sep="", collapse = ","),end))$bundle->minidf18
+fromJSON(str_c(begin, str_c(ID_15M[901:950], sep="", collapse = ","),end))$bundle->minidf19
+fromJSON(str_c(begin, str_c(ID_15M[951:1000], sep="", collapse = ","),end))$bundle->minidf20
+fromJSON(str_c(begin, str_c(ID_15M[1001:1050], sep="", collapse = ","),end))$bundle->minidf21
+fromJSON(str_c(begin, str_c(ID_15M[1051:1100], sep="", collapse = ","),end))$bundle->minidf22
+fromJSON(str_c(begin, str_c(ID_15M[1101:1150], sep="", collapse = ","),end))$bundle->minidf23
+fromJSON(str_c(begin, str_c(ID_15M[1151:1163], sep="", collapse = ","),end))$bundle->minidf24
+
+full_join(minidf1,minidf2) %>% full_join(minidf3)%>% full_join(minidf4)%>% full_join(minidf5)%>% full_join(minidf6)%>% full_join(minidf7) %>%full_join(minidf8)%>% full_join(minidf9)%>% full_join(minidf10)%>% full_join(minidf11)%>% full_join(minidf12)%>% full_join(minidf13)%>% full_join(minidf14)%>% full_join(minidf15)%>% full_join(minidf16)%>% full_join(minidf17)%>% full_join(minidf18)%>% full_join(minidf19)%>% full_join(minidf20)%>% full_join(minidf21) %>%full_join(minidf22)%>% full_join(minidf23)%>% full_join(minidf24)->mile_15zips_final
+
+glimpse(mile_15zips_final) %>% 
+  select("region","regionCounty","regionMetro","regionCity", "timePeriodEndDateTime", "dataValue","regionState") %>% 
+  mutate(Dist = "15 miles")->mile_15zips_final
+  
+
+write_csv2(mile_15zips_final, "mile_15zips_final.csv")
+```
+
+
+
+
+
+
+
+
+```{r}
+#Search for different cuts
+fromJSON("https://api.bridgedataoutput.com/api/v2/zgecon/cut?access_token=key_get('bridge_server_token')&limit=200")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
